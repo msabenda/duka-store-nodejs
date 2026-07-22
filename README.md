@@ -1,4 +1,4 @@
-# Duka Store — Snippe Payment Integration (Node.js / Express)
+# Duka Store - Snippe Payment Integration (Node.js / Express)
 
 An Express.js store that collects payments via **Mobile Money**, **Cards**, and **QR Codes** using the Snippe Payments API. Raw HTTP calls, no SDK.
 
@@ -19,7 +19,7 @@ Set these in `.env`:
 
 ```
 SNIPPE_API_KEY=***
-APP_URL=https://your-domain.com      # Must be HTTPS — Snippe sends webhooks here
+APP_URL=https://your-domain.com      # Must be HTTPS - Snippe sends webhooks here
 SESSION_SECRET=***      # Anything random, for session cookies
 ```
 
@@ -41,7 +41,7 @@ There are exactly **four** places where your Node.js app talks to Snippe.
 
 ---
 
-## 1. Configuration — `.env`
+## 1. Configuration - `.env`
 
 ```
 SNIPPE_API_KEY=***
@@ -61,11 +61,11 @@ Every API call sends these headers automatically (set in `snippe.js`):
 
 ---
 
-## 2. Accepting Payments — `POST /v1/payments`
+## 2. Accepting Payments - `POST /v1/payments`
 
 There are three payment types. Each one maps to a different API call.
 
-### 💳 Mobile Money
+### Mobile Money
 
 Customer gets a USSD push on their phone.
 
@@ -101,7 +101,7 @@ The USSD push is sent automatically. Customer enters their PIN on their phone to
 |---|---|---|
 | `payment_type` | string | Must be `"mobile"` |
 | `details.amount` | integer | Amount in smallest unit (e.g. 500 = 500 TZS) |
-| `details.currency` | string | `"TZS"` (Tanzanian Shilling — the only supported currency) |
+| `details.currency` | string | `"TZS"` (Tanzanian Shilling - the only supported currency) |
 | `phone_number` | string | Customer phone in international format (`255XXXXXXXXX`) |
 | `customer.firstname` | string | Customer's first name |
 | `customer.lastname` | string | Customer's last name |
@@ -111,7 +111,7 @@ The USSD push is sent automatically. Customer enters their PIN on their phone to
 
 ---
 
-### 💳 Card Payment
+### Card Payment
 
 Customer is redirected to a secure hosted checkout page.
 
@@ -161,7 +161,7 @@ const response = await fetch('https://api.snippe.sh/v1/payments', {
 
 ---
 
-### 📱 Dynamic QR
+### Dynamic QR
 
 Generates a QR code the customer scans with their mobile money app.
 
@@ -183,16 +183,16 @@ const response = await fetch('https://api.snippe.sh/v1/payments', {
 ```
 
 **Response data includes:**
-- `payment_url` — hosted checkout page to redirect the customer to
-- `payment_qr_code` — QR data string to render as a scannable image for in-person payments
-- `reference` — unique payment reference
-- `payment_token` — payment token for reference
+- `payment_url` - hosted checkout page to redirect the customer to
+- `payment_qr_code` - QR data string to render as a scannable image for in-person payments
+- `reference` - unique payment reference
+- `payment_token` - payment token for reference
 
 **Your next step:** Either redirect to `payment_url` or render `payment_qr_code` as a QR image.
 
 ---
 
-## 3. The Webhook — Your App Gets Notified
+## 3. The Webhook - Your App Gets Notified
 
 After payment, Snippe sends a `POST` to your `webhook_url`. This is how your app learns the final status without polling.
 
@@ -250,11 +250,11 @@ app.post('/webhook', (req, res) => {
 
 ## 4. Important Rules
 
-### 🔐 Idempotency Keys
+### Idempotency Keys
 
 Always send an `Idempotency-Key` header with every `POST /v1/payments`.
 
-- **Max 30 characters** — longer keys return a 500 error
+- **Max 30 characters** - longer keys return a 500 error
 - **Same key + same body** = returns cached response (safe to retry)
 - **Same key + different body** = returns error
 - Keys are valid for **24 hours**
@@ -263,11 +263,11 @@ Always send an `Idempotency-Key` header with every `POST /v1/payments`.
 // Good
 headers['Idempotency-Key'] = 'order-abc123-retry-1';       // ≤ 30 chars ✓
 
-// Bad — will fail
+// Bad - will fail
 headers['Idempotency-Key'] = `order-${orderId}-${Date.now()}`;  // likely too long ✗
 ```
 
-### 🌐 Webhook URL must be HTTPS and reachable
+### Webhook URL must be HTTPS and reachable
 
 Snippe will reject webhook URLs that are `localhost`, `127.0.0.1`, or HTTP.
 
@@ -277,11 +277,11 @@ const baseUrl = (process.env.APP_URL || 'http://localhost:8002')
 const webhookUrl = `${baseUrl}/webhook`;
 ```
 
-### 💵 Minimum amount
+### Minimum amount
 
 The minimum payment amount is **500 TZS** (5 smallest units).
 
-### ⏰ Payments expire after 4 hours
+### Payments expire after 4 hours
 
 Create a fresh payment if the customer wants to retry.
 
