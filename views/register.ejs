@@ -1,0 +1,40 @@
+<%- include('partials/header') %>
+<% title = 'Register'; %>
+<style>
+.auth-wrap{min-height:70vh;display:flex;align-items:center;justify-content:center;padding:48px 16px}
+.auth-box{width:100%;max-width:448px;background:#fff;border-radius:16px;padding:32px;border:1px solid #dcfce7;box-shadow:0 1px 3px rgba(0,0,0,.04);text-align:center}
+.auth-box .icon{width:48px;height:48px;background:#f0fdf4;border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.auth-box .icon svg{width:24px;height:24px;color:#1a1a1a}
+.auth-box h1{font-size:1.5rem;font-weight:700;color:#1a1a1a;margin-bottom:4px}
+.auth-box p{color:#6b7280;font-size:14px;margin-bottom:24px}
+.form-group{margin-bottom:16px;text-align:left}
+.form-group label{display:block;font-size:14px;font-weight:500;color:#1e1b4b;margin-bottom:6px}
+.form-group input{width:100%;padding:12px 16px;border:1px solid #e5e7eb;border-radius:12px;font-size:14px;color:#1a1a1a;outline:none;transition:all .15s}
+.form-group input:focus{border-color:#15803d;box-shadow:0 0 0 2px rgba(22,163,74,.15)}
+.btn-auth{width:100%;background:#1a1a1a;color:#fff;padding:12px;border-radius:12px;font-size:14px;font-weight:600;border:none;cursor:pointer;transition:background .15s;box-shadow:0 10px 15px -3px rgba(0,0,0,.1)}
+.btn-auth:hover{background:#333}
+.auth-link{font-size:14px;color:#6b7280;margin-top:24px}
+.auth-link a{color:#15803d;font-weight:500;text-decoration:none}
+.auth-link a:hover{color:#166534}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+</style>
+<div class="auth-wrap">
+  <div class="auth-box">
+    <div class="icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg></div>
+    <h1>Create Account</h1>
+    <p>Join us and start shopping.</p>
+    <% if (typeof error !== 'undefined' && error) { %><div class="flash-msg flash-error" style="margin-bottom:16px;text-align:left"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span><%= error %></span></div><% } %>
+    <form method="POST">
+      <div class="grid-2">
+        <div class="form-group"><label for="firstname">First Name</label><input type="text" name="firstname" id="firstname" placeholder="John" required></div>
+        <div class="form-group"><label for="lastname">Last Name</label><input type="text" name="lastname" id="lastname" placeholder="Doe" required></div>
+      </div>
+      <div class="form-group"><label for="email">Email</label><input type="email" name="email" id="email" placeholder="your@email.com" required></div>
+      <div class="form-group"><label for="password">Password</label><input type="password" name="password" id="password" placeholder="At least 8 characters" required></div>
+      <div class="form-group" style="margin-bottom:24px"><label for="password2">Confirm Password</label><input type="password" name="password2" id="password2" placeholder="Repeat your password" required></div>
+      <button type="submit" class="btn-auth">Create Account</button>
+    </form>
+    <p class="auth-link">Already have an account? <a href="/login">Sign in</a></p>
+  </div>
+</div>
+<%- include('partials/footer') %>

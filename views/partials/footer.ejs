@@ -1,0 +1,21 @@
+  </main>
+
+  <footer style="background:#1a1a1a;color:#9ca3af;margin-top:96px">
+    <div style="max-width:1280px;margin:0 auto;padding:48px 1rem">
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:32px">
+        <div><p style="font-size:18px;font-weight:700;color:#fff;margin-bottom:12px">Duka Store</p><p style="color:#6b7280;font-size:14px;line-height:1.6">Fashion essentials at one price. No fuss, no hidden costs.</p></div>
+        <div><h3 style="font-size:12px;font-weight:600;color:#d1d5db;text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px">Shop</h3><ul style="list-style:none"><li style="margin-bottom:10px"><a href="/" style="color:#6b7280;text-decoration:none;font-size:14px">All Products</a></li></ul></div>
+        <div><h3 style="font-size:12px;font-weight:600;color:#d1d5db;text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px">Account</h3><ul style="list-style:none">
+          <% if (typeof user !== 'undefined' && user) { %><li style="margin-bottom:10px"><a href="/dashboard" style="color:#6b7280;text-decoration:none;font-size:14px">Dashboard</a></li><li style="margin-bottom:10px"><a href="/logout" style="color:#6b7280;text-decoration:none;font-size:14px">Logout</a></li>
+          <% } else { %><li style="margin-bottom:10px"><a href="/login" style="color:#6b7280;text-decoration:none;font-size:14px">Login</a></li><li style="margin-bottom:10px"><a href="/register" style="color:#6b7280;text-decoration:none;font-size:14px">Register</a></li><% } %>
+          <li style="margin-bottom:10px"><a href="/cart" style="color:#6b7280;text-decoration:none;font-size:14px">Cart</a></li>
+        </ul></div>
+        <div><h3 style="font-size:12px;font-weight:600;color:#d1d5db;text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px">Payment</h3><ul style="list-style:none"><li style="margin-bottom:10px"><span style="color:#6b7280;font-size:14px">Mobile Money</span></li><li style="margin-bottom:10px"><span style="color:#6b7280;font-size:14px">Card</span></li><li style="margin-bottom:10px"><span style="color:#6b7280;font-size:14px">QR Code</span></li></ul></div>
+      </div>
+      <div style="border-top:1px solid #333;margin-top:40px;padding-top:32px;display:flex;flex-direction:column;align-items:center;gap:12px">
+        <p style="color:#4b5563;font-size:14px">&copy; <%= new Date().getFullYear() %> Duka Store. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

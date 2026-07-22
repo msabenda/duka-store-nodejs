@@ -1,0 +1,34 @@
+# Normalise line endings
+* text=auto
+
+# JavaScript / Node
+*.js text diff=javascript
+*.mjs text diff=javascript
+*.cjs text diff=javascript
+*.json text
+*.env text
+
+# Markup / Docs
+*.md text
+*.html text diff=html
+*.css text diff=css
+
+# Config / YAML
+*.yaml text
+*.yml text
+
+# Binary — keep as-is
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.svg text
+*.woff binary
+*.woff2 binary
+*.eot binary
+*.ttf binary
+
+# Lock files — diff as text
+package-lock.json text
+yarn.lock text

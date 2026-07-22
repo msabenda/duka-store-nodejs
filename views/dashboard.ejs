@@ -1,0 +1,50 @@
+<%- include('partials/header') %>
+<% title = 'Dashboard'; %>
+<style>
+.dash{max-width:1024px;margin:0 auto;padding:32px 1rem}
+.dash h1{font-size:1.5rem;font-weight:700;color:#1a1a1a}
+.dash p.sub{color:#6b7280;font-size:14px;margin-top:4px;margin-bottom:32px}
+.empty{background:#f0fdf4;border-radius:16px;padding:64px;text-align:center;border:2px dashed #bbf7d0}
+.empty .btn{display:inline-block;background:#1a1a1a;color:#fff;padding:12px 28px;border-radius:12px;text-decoration:none;font-weight:500;margin-top:16px;transition:background .15s;box-shadow:0 10px 15px -3px rgba(0,0,0,.1)}
+.empty .btn:hover{background:#333}
+.table-wrap{background:#fff;border:1px solid #dcfce7;border-radius:16px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:16px 24px;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;background:#f0fdf4;border-bottom:1px solid #dcfce7}
+td{padding:16px 24px;font-size:14px;border-bottom:1px solid #f0fdf4}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f0fdf480}
+.ref{font-family:monospace;color:#1a1a1a}.date{color:#6b7280}.amt{font-weight:600;color:#1a1a1a}
+.stat{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600}
+.stat-completed{background:#dcfce7;color:#15803d}
+.stat-failed{background:#fef2f2;color:#991b1b}
+.stat-cancelled{background:#f3f4f6;color:#4b5563}
+.stat-pending{background:#fef9c3;color:#854d0e}
+.stat-expired{background:#fef9c3;color:#854d0e}
+.view{color:#15803d;text-decoration:none;font-size:14px;font-weight:500}
+.view:hover{color:#166534}
+</style>
+<div class="dash">
+  <h1>Welcome, <%= user.firstname %></h1>
+  <p class="sub">Your order history and account info.</p>
+  <% if (!orders.length) { %>
+  <div class="empty"><p>No orders yet.</p><a href="/" class="btn">Shop Now</a></div>
+  <% } else { %>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Reference</th><th>Date</th><th>Amount</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        <% orders.forEach(function(o) { %>
+        <tr>
+          <td class="ref"><%= o.reference %></td>
+          <td class="date"><%= new Date(o.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) %></td>
+          <td class="amt">TZS <%= o.amount.toLocaleString() %></td>
+          <td><span class="stat stat-<%= o.status %>"><%= o.status %></span></td>
+          <td style="text-align:right"><a href="/order/<%= o.reference %>?from=dash" class="view">View &rarr;</a></td>
+        </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+  <% } %>
+</div>
+<%- include('partials/footer') %>
