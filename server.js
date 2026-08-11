@@ -16,7 +16,10 @@ const APP_URL = (process.env.APP_URL || 'http://localhost:' + PORT).replace('htt
 const app = express();
 
 // ── Middleware ──
-app.use(express.json());
+// Capture the raw request body so webhook signatures can be verified against
+// the exact bytes Snippe sent. Re-serializing parsed JSON (JSON.stringify)
+// can change whitespace/key order and break the HMAC → 401 forged.
+app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf; } }));
 app.use(express.urlencoded({ extended: true }));
 app.use(session({ secret: process.env.SESSION_SECRET || 'duka-store-dev-secret', resave: false, saveUninitialized: false }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -221,14 +224,19 @@ app.get('/dashboard', auth, (req, res) => {
 // ── Webhook ──
 app.post('/webhook', (req, res) => {
   const payload = req.body;
-  const raw = JSON.stringify(payload);
 
-  // Verify signature
+  // Verify against the RAW body buffer (captured by the verify hook above).
+  const raw = req.rawBody || Buffer.from(JSON.stringify(payload));
+
   const secret = process.env.SNIPPE_WEBHOOK_SECRET;
   if (secret) {
-    const signature = req.headers['snippe-signature'];
+    const signature = req.headers['snippe-signature'] || '';
     const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(raw).digest('hex');
-    if (!signature || !crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) {
+    const expectedBuf = Buffer.from(expected);
+    const sigBuf = Buffer.from(signature);
+    // timingSafeEqual throws on length mismatch — compare lengths first.
+    const valid = sigBuf.length === expectedBuf.length && crypto.timingSafeEqual(expectedBuf, sigBuf);
+    if (!valid) {
       return res.status(401).json({ status: 'forged' });
     }
   }
