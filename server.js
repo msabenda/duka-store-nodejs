@@ -136,7 +136,7 @@ app.get('/cart/remove/:idx', (req, res) => {
 });
 
 // ── Checkout ──
-// 🎙️ DA NOTE — YOUR CUSTOM CHECKOUT (you built this page — reused in later sessions)
+// 💡 LEARNER'S NOTE — YOUR CUSTOM CHECKOUT (you build this page yourself)
 // This is YOUR checkout page: customer details form + payment method buttons
 // (Mobile Money / Card / QR), rendered by views/checkout.ejs. Snippe's hosted
 // checkout (the payment_url redirect) is the alternative — this page is the
@@ -177,9 +177,9 @@ async function processPayment(req, res, paymentMethod) {
     country: req.body.customer_country || 'TZ',
   };
   const phone = formatPhone(customer_phone);
-  // 🎙️ DA NOTE — SESSION → REDIRECT → RETURN URL FLOW (Session 3)
+  // 💡 LEARNER'S NOTE — SESSION → REDIRECT → RETURN URL FLOW
   // One payment session per checkout intent. The DUKA- reference is baked into
-  // the return URLs AND metadata, so the webhook (next session!) can reconcile
+  // the return URLs AND metadata, so the webhook can reconcile
   // the payment back to this exact order. Reference + metadata = your audit
   // trail — Snippe echoes both back in every webhook payload.
   const successUrl = `${APP_URL}/order/${reference}`;
@@ -213,19 +213,19 @@ async function processPayment(req, res, paymentMethod) {
   orders.push(order);
   writeJSON('orders.json', orders);
 
-  // 🎙️ DA NOTE — ONE SESSION PER CHECKOUT INTENT
+  // 💡 LEARNER'S NOTE — ONE SESSION PER CHECKOUT INTENT
   // Cart cleared immediately after session creation: one intent → one session.
-  // Never loop/re-create sessions on retries (foreshadows the abuse-signals
-  // session — repeated session creation is a classic abuse signal).
+  // Never loop/re-create sessions on retries — repeated session creation is a
+  // classic abuse signal and Snippe tracks it.
   req.session.cart = [];
 
   if (response.success) {
     const data = response.data?.data || {};
     if (paymentMethod === 'mobile') return res.redirect(`/order/${reference}`);
-    // 🎙️ DA NOTE — REDIRECT ≠ PROOF OF PAYMENT
+    // 💡 LEARNER'S NOTE — REDIRECT ≠ PROOF OF PAYMENT
     // Landing back here only means the customer visited the hosted checkout.
-    // The order is still 'pending' until the webhook flips it. Tell the
-    // community: never ship redirect-only confirmation — webhook is the truth.
+    // The order is still 'pending' until the webhook flips it. Never ship
+    // redirect-only confirmation — the webhook is the source of truth.
     const checkoutUrl = data.payment_url;
     if (checkoutUrl) return res.redirect(checkoutUrl);
     return res.redirect(`/order/${reference}`);
@@ -240,7 +240,7 @@ app.post('/checkout/card', auth, (req, res) => processPayment(req, res, 'card'))
 app.post('/checkout/qr', auth, (req, res) => processPayment(req, res, 'dynamic-qr'));
 
 // ── Hosted Checkout via Payment Sessions (Snippe) ──
-// 🎙️ DA NOTE — the cart's "Checkout" button posts here. It creates a PAYMENT
+// 💡 LEARNER'S NOTE — the cart's "Checkout" button posts here. It creates a PAYMENT
 // SESSION (POST /sessions) with the cart total + the logged-in user's details,
 // then redirects the customer to Snippe's HOSTED CHECKOUT page (checkout_url)
 // where they fill/confirm their details and pay (mobile money). The order
@@ -320,7 +320,7 @@ app.get('/dashboard', auth, (req, res) => {
 });
 
 // ── Success page (customer lands here after paying on Snippe's hosted checkout) ──
-// 🎙️ DA NOTE — this page RECEIVES the customer after the hosted checkout. It
+// 💡 LEARNER'S NOTE — this page RECEIVES the customer after the hosted checkout. It
 // reads the order reference from ?ref= and shows the order's REAL status.
 // The redirect is NOT proof of payment: the page shows 'pending' until the
 // webhook flips the order. A small poll re-checks the status so the page
@@ -343,9 +343,9 @@ app.get('/success/status', (req, res) => {
 });
 
 // ── Webhook ──
-// 🎙️ DA NOTE — the webhook is the SOURCE OF TRUTH (teased in Session 3,
-// deep-dive next session). It resolves the order by `reference` and only
-// updates status after the HMAC signature verifies.
+// 💡 LEARNER'S NOTE — the webhook is the SOURCE OF TRUTH. It resolves the
+// order by `reference` and only updates status after the HMAC signature
+// verifies.
 app.post('/webhook', (req, res) => {
   const payload = req.body;
 

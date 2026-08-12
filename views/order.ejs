@@ -65,7 +65,7 @@
       <% order.items.forEach(function(item) { %>
       <div class="item-row">
         <div class="left">
-          <img src="<%= item.image || '/images/tee.svg' %>" alt="<%= item.product_name %>">
+          <img src="<%= item.image || '/images/img1.jpg' %>" alt="<%= item.product_name %>">
           <div><span class="name"><%= item.product_name %></span><span class="qty"> x<%= item.quantity %></span></div>
         </div>
         <span class="price">TZS <%= item.subtotal.toLocaleString() %></span>

@@ -85,7 +85,7 @@ export function createMobilePayment(amount, currency, phoneNumber, customer, web
   return request('POST', 'payments', payload);
 }
 
-// 🎙️ DA NOTE — HOSTED CHECKOUT / PAYMENT SESSIONS (Session 3)
+// 💡 LEARNER'S NOTE — HOSTED CHECKOUT / PAYMENT SESSIONS
 // This is the "create session" step: ask Snippe for a hosted checkout and it
 // returns a payment_url (the Sessions API calls it checkout_url) to send the
 // customer to. `details.redirect_url` / `details.cancel_url` bring them back
@@ -124,7 +124,7 @@ export function createQrPayment(amount, currency, customer, redirectUrl, cancelU
   return request('POST', 'payments', payload);
 }
 
-// 🎙️ DA NOTE — PAYMENT SESSIONS / HOSTED CHECKOUT (Series 3): creates a hosted
+// 💡 LEARNER'S NOTE — PAYMENT SESSIONS / HOSTED CHECKOUT: creates a hosted
 // checkout session. The response's checkout_url is the Snippe page the customer
 // is redirected to — they fill/confirm their details and pay there (mobile
 // money). metadata.order_reference is how the webhook reconciles the payment.
