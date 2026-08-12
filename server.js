@@ -76,7 +76,7 @@ app.post('/login', (req, res) => {
     const { items, count } = cartData(req.session.cart);
     return res.render('login', { error: 'Invalid email or password.', cart_count: count, user: null });
   }
-  req.session.user = { id: user.id, firstname: user.firstname, lastname: user.lastname, email: user.email };
+  req.session.user = { id: user.id, firstname: user.firstname, lastname: user.lastname, email: user.email, phone: user.phone || '' };
   res.redirect('/');
 });
 
@@ -86,13 +86,14 @@ app.get('/register', (req, res) => {
 });
 
 app.post('/register', (req, res) => {
-  const { firstname, lastname, email, password, password2 } = req.body;
+  const { firstname, lastname, email, phone, password, password2 } = req.body;
   if (password !== password2) return res.render('register', { error: 'Passwords do not match.', cart_count: 0, user: null });
   if (password.length < 8) return res.render('register', { error: 'Password must be at least 8 characters.', cart_count: 0, user: null });
+  if (!phone) return res.render('register', { error: 'Phone number is required (Snippe needs it for payments).', cart_count: 0, user: null });
   const users = readJSON('users.json');
   if (users.find(u => u.email === email)) return res.render('register', { error: 'An account with this email already exists.', cart_count: 0, user: null });
   const id = users.length ? Math.max(...users.map(u => u.id)) + 1 : 1;
-  users.push({ id, firstname, lastname, email, password: bcrypt.hashSync(password, 10), created_at: new Date().toISOString() });
+  users.push({ id, firstname, lastname, email, phone, password: bcrypt.hashSync(password, 10), created_at: new Date().toISOString() });
   writeJSON('users.json', users);
   res.redirect('/login?registered=1');
 });
@@ -135,18 +136,29 @@ app.get('/cart/remove/:idx', (req, res) => {
 });
 
 // ── Checkout ──
-app.get('/checkout', auth, (req, res) => {
-  const { items, count } = cartData(req.session.cart);
-  if (!items.length) return res.redirect('/cart');
-  res.render('checkout', { items, total: cartData(req.session.cart).total, cart_count: count, user: req.session.user });
-});
+// 🎙️ DA NOTE — YOUR CUSTOM CHECKOUT (you built this page — reused in later sessions)
+// This is YOUR checkout page: customer details form + payment method buttons
+// (Mobile Money / Card / QR), rendered by views/checkout.ejs. Snippe's hosted
+// checkout (the payment_url redirect) is the alternative — this page is the
+// part you own: what you collect, what you validate, what you send to Snippe.
+//
+// ⚠️ DISABLED FOR NOW — hosted Snippe checkout only (see POST /checkout/hosted).
+// The custom checkout page is commented out; uncomment to restore it.
+//
+// app.get('/checkout', auth, (req, res) => {
+//   const { items, count } = cartData(req.session.cart);
+//   if (!items.length) return res.redirect('/cart');
+//   res.render('checkout', { items, total: cartData(req.session.cart).total, cart_count: count, user: req.session.user });
+// });
 
 async function processPayment(req, res, paymentMethod) {
   const { items, total: totalAmount, count } = cartData(req.session.cart);
   if (!items.length) return res.redirect('/cart');
 
   const { customer_name, customer_email, customer_phone } = req.body;
-  if (!customer_name || !customer_email || !customer_phone) return res.redirect('/checkout');
+  // Phone is only required for mobile money. The hosted checkout flow (POST
+  // /checkout/hosted) uses the logged-in user's details and sends '' for phone.
+  if (!customer_name || !customer_email) return res.redirect('/cart');
 
   const user = req.session.user;
   const reference = 'DUKA-' + crypto.randomBytes(6).toString('hex').toUpperCase();
@@ -154,8 +166,22 @@ async function processPayment(req, res, paymentMethod) {
   const firstName = nameParts[0];
   const lastName = nameParts.slice(1).join(' ');
 
-  const customer = { firstname: firstName, lastname: lastName, email: customer_email };
+  // Billing details are required by the card API. The hosted checkout flow uses
+  // defaults (demo store in Tanzania); the custom form can collect them later.
+  const customer = {
+    firstname: firstName, lastname: lastName, email: customer_email,
+    address: req.body.customer_address || 'Dar es Salaam',
+    city: req.body.customer_city || 'Dar es Salaam',
+    state: req.body.customer_state || 'DSM',
+    postcode: req.body.customer_postcode || '14101',
+    country: req.body.customer_country || 'TZ',
+  };
   const phone = formatPhone(customer_phone);
+  // 🎙️ DA NOTE — SESSION → REDIRECT → RETURN URL FLOW (Session 3)
+  // One payment session per checkout intent. The DUKA- reference is baked into
+  // the return URLs AND metadata, so the webhook (next session!) can reconcile
+  // the payment back to this exact order. Reference + metadata = your audit
+  // trail — Snippe echoes both back in every webhook payload.
   const successUrl = `${APP_URL}/order/${reference}`;
   const cancelUrl = `${APP_URL}/order/${reference}`;
   const webhookUrl = `${APP_URL}/webhook`;
@@ -187,11 +213,19 @@ async function processPayment(req, res, paymentMethod) {
   orders.push(order);
   writeJSON('orders.json', orders);
 
+  // 🎙️ DA NOTE — ONE SESSION PER CHECKOUT INTENT
+  // Cart cleared immediately after session creation: one intent → one session.
+  // Never loop/re-create sessions on retries (foreshadows the abuse-signals
+  // session — repeated session creation is a classic abuse signal).
   req.session.cart = [];
 
   if (response.success) {
     const data = response.data?.data || {};
     if (paymentMethod === 'mobile') return res.redirect(`/order/${reference}`);
+    // 🎙️ DA NOTE — REDIRECT ≠ PROOF OF PAYMENT
+    // Landing back here only means the customer visited the hosted checkout.
+    // The order is still 'pending' until the webhook flips it. Tell the
+    // community: never ship redirect-only confirmation — webhook is the truth.
     const checkoutUrl = data.payment_url;
     if (checkoutUrl) return res.redirect(checkoutUrl);
     return res.redirect(`/order/${reference}`);
@@ -204,6 +238,70 @@ async function processPayment(req, res, paymentMethod) {
 app.post('/checkout/mobile', auth, (req, res) => processPayment(req, res, 'mobile'));
 app.post('/checkout/card', auth, (req, res) => processPayment(req, res, 'card'));
 app.post('/checkout/qr', auth, (req, res) => processPayment(req, res, 'dynamic-qr'));
+
+// ── Hosted Checkout via Payment Sessions (Snippe) ──
+// 🎙️ DA NOTE — the cart's "Checkout" button posts here. It creates a PAYMENT
+// SESSION (POST /sessions) with the cart total + the logged-in user's details,
+// then redirects the customer to Snippe's HOSTED CHECKOUT page (checkout_url)
+// where they fill/confirm their details and pay (mobile money). The order
+// stays 'pending' until the webhook confirms it.
+// Docs: https://docs.snippe.sh/docs/2026-01-25/sessions
+app.post('/checkout/pay', auth, async (req, res) => {
+  const { items, total: totalAmount } = cartData(req.session.cart);
+  if (!items.length) return res.redirect('/cart');
+
+  const user = req.session.user;
+  // Pre-fill the hosted checkout with the account details (editable on Snippe's page).
+  const customer = {
+    name: `${user.firstname} ${user.lastname}`.trim(),
+    email: user.email,
+    phone: formatPhone(user.phone || ''),
+  };
+  if (!customer.name || !customer.email || !customer.phone) {
+    return res.render('register', { error: 'Your account needs a name, email and phone for checkout - please register again.', cart_count: 0, user: null });
+  }
+
+  const reference = 'DUKA-' + crypto.randomBytes(6).toString('hex').toUpperCase();
+  const redirectUrl = `${APP_URL}/success?ref=${reference}`;
+  const webhookUrl = `${APP_URL}/webhook`;
+  const metadata = { order_reference: reference, source: 'duka-store-nodejs' };
+
+  const response = await snippe.createSession({
+    amount: totalAmount,
+    currency: 'TZS',
+    customer,
+    redirect_url: redirectUrl,
+    webhook_url: webhookUrl,
+    metadata,
+    description: `Duka Store order ${reference}`,
+  });
+
+  const snippeRef = response.success ? (response.data?.data?.reference || null) : null;
+
+  // Save the order locally (pending until the webhook confirms it).
+  const orders = readJSON('orders.json');
+  const orderItems = items.map(i => ({
+    product_id: i.product.id, product_name: i.product.name, price: i.product.price,
+    quantity: i.quantity, subtotal: i.subtotal, image: i.product.image,
+  }));
+  orders.push({
+    reference, snippe_reference: snippeRef, user_id: user.id, amount: totalAmount,
+    currency: 'TZS', status: 'pending', payment_method: 'session', items: orderItems,
+    customer_name: customer.name, customer_email: customer.email, customer_phone: customer.phone,
+    created_at: new Date().toISOString(),
+  });
+  writeJSON('orders.json', orders);
+  req.session.cart = [];
+
+  if (response.success) {
+    const checkoutUrl = response.data?.data?.checkout_url;
+    if (checkoutUrl) return res.redirect(checkoutUrl);
+    return res.redirect(`/order/${reference}`);
+  }
+
+  const err = response.error || 'Could not create payment.';
+  res.redirect(`/order/${reference}?error=${encodeURIComponent(err)}`);
+});
 
 // ── Orders ──
 app.get('/order/:ref', (req, res) => {
@@ -221,9 +319,38 @@ app.get('/dashboard', auth, (req, res) => {
   res.render('dashboard', { orders, cart_count: count, user: req.session.user });
 });
 
+// ── Success page (customer lands here after paying on Snippe's hosted checkout) ──
+// 🎙️ DA NOTE — this page RECEIVES the customer after the hosted checkout. It
+// reads the order reference from ?ref= and shows the order's REAL status.
+// The redirect is NOT proof of payment: the page shows 'pending' until the
+// webhook flips the order. A small poll re-checks the status so the page
+// updates (green tick) the moment the webhook lands.
+app.get('/success', (req, res) => {
+  const ref = req.query.ref;
+  const orders = readJSON('orders.json');
+  const order = orders.find(o => o.reference === ref);
+  const { count } = cartData(req.session.cart);
+  res.render('success', { order: order || null, cart_count: count, user: req.session.user });
+});
+
+// JSON status endpoint used by the success page poll.
+app.get('/success/status', (req, res) => {
+  const ref = req.query.ref;
+  const orders = readJSON('orders.json');
+  const order = orders.find(o => o.reference === ref);
+  if (!order) return res.status(404).json({ status: 'not_found' });
+  res.json({ status: order.status });
+});
+
 // ── Webhook ──
+// 🎙️ DA NOTE — the webhook is the SOURCE OF TRUTH (teased in Session 3,
+// deep-dive next session). It resolves the order by `reference` and only
+// updates status after the HMAC signature verifies.
 app.post('/webhook', (req, res) => {
   const payload = req.body;
+
+  // Always log the raw event so webhook delivery can be debugged live.
+  console.log('WEBHOOK received:', JSON.stringify(payload));
 
   // Verify against the RAW body buffer (captured by the verify hook above).
   const raw = req.rawBody || Buffer.from(JSON.stringify(payload));
@@ -237,14 +364,16 @@ app.post('/webhook', (req, res) => {
     // timingSafeEqual throws on length mismatch — compare lengths first.
     const valid = sigBuf.length === expectedBuf.length && crypto.timingSafeEqual(expectedBuf, sigBuf);
     if (!valid) {
+      console.log('WEBHOOK forged/signature mismatch (check SNIPPE_WEBHOOK_SECRET matches the dashboard)');
       return res.status(401).json({ status: 'forged' });
     }
   }
 
   const event = payload.event || payload.type || 'unknown';
-  let reference = payload.reference || payload.order_reference;
+  let reference = payload.reference || payload.order_reference || payload.metadata?.order_reference;
 
   if (!reference && payload.data?.metadata?.reference) reference = payload.data.metadata.reference;
+  if (!reference && payload.data?.metadata?.order_reference) reference = payload.data.metadata.order_reference;
   if (!reference && payload.data?.description) {
     const match = payload.data.description.match(/DUKA-[A-Z0-9]+/);
     if (match) reference = match[0];
@@ -254,17 +383,26 @@ app.post('/webhook', (req, res) => {
 
   const statusMap = {
     'payment.completed': 'completed', 'payment.successful': 'completed', 'payment.confirmed': 'completed',
-    'payment.failed': 'failed', 'payment.cancelled': 'cancelled', 'payment.expired': 'expired', 'checkout.expired': 'expired',
+    'payment.succeeded': 'completed', 'session.completed': 'completed', 'checkout.completed': 'completed',
+    'session.payment.completed': 'completed',
+    'payment.failed': 'failed', 'session.failed': 'failed', 'checkout.failed': 'failed',
+    'payment.cancelled': 'cancelled', 'session.cancelled': 'cancelled', 'checkout.cancelled': 'cancelled',
+    'payment.expired': 'expired', 'session.expired': 'expired', 'checkout.expired': 'expired',
+    'payment.pending': 'pending', 'session.pending': 'pending', 'checkout.pending': 'pending',
   };
 
   const newStatus = statusMap[event];
   if (newStatus) {
     const orders = readJSON('orders.json');
-    const idx = orders.findIndex(o => o.reference === reference);
+    // Resolve by our order reference OR by the stored Snippe session reference.
+    let idx = orders.findIndex(o => o.reference === reference);
+    if (idx === -1) idx = orders.findIndex(o => o.snippe_reference === reference);
     if (idx !== -1) {
       orders[idx].status = newStatus;
       writeJSON('orders.json', orders);
       console.log(`Order ${reference} updated to ${newStatus}`);
+    } else {
+      console.log(`WEBHOOK: no order found for reference ${reference}`);
     }
   }
 

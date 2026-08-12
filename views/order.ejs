@@ -36,6 +36,9 @@
 .continue a:hover{color:#166534}
 </style>
 <div class="od">
+  <% if (typeof error !== 'undefined' && error) { %>
+  <div class="info-msg" style="background:#fef2f2;border-color:#fecaca;color:#991b1b">Payment failed: <%= error %></div>
+  <% } %>
   <% if (typeof req !== 'undefined' && req.query && req.query.from === 'dash') { %>
   <div class="back"><a href="/dashboard"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg> Back to Dashboard</a></div>
   <% } %>

@@ -1,0 +1,82 @@
+<%- include('partials/header') %>
+<% title = order ? 'Order ' + order.reference : 'Order Not Found'; %>
+<style>
+.od{max-width:672px;margin:0 auto;padding:32px 1rem}
+.card{background:#fff;border:1px solid #dcfce7;border-radius:16px;padding:32px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.check{width:64px;height:64px;border-radius:999px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;background:#dcfce7}
+.check svg{width:32px;height:32px;color:#15803d}
+.check.amber{background:#fef9c3}.check.amber svg{color:#854d0e}
+.check.red{background:#fef2f2}.check.red svg{color:#991b1b}
+.card h1{font-size:1.5rem;font-weight:700;color:#1a1a1a;margin-bottom:8px}
+.card .sub{color:#6b7280;margin-bottom:28px;font-size:14px;line-height:1.6}
+.details{background:#f0fdf4;border:1px solid #dcfce7;border-radius:16px;padding:24px;margin-bottom:28px;text-align:left}
+.details .row{display:flex;justify-content:space-between;margin-bottom:12px}
+.details .row .lbl{color:#6b7280;font-size:14px}
+.details .row .val{font-weight:600;color:#1a1a1a;font-size:14px}
+.details .row .mono{font-family:monospace}
+.stat{display:inline-block;padding:4px 12px;border-radius:999px;font-size:13px;font-weight:600}
+.stat-completed{background:#dcfce7;color:#15803d}
+.stat-failed,.stat-cancelled{background:#f3f4f6;color:#4b5563}
+.stat-pending,.stat-expired{background:#fef9c3;color:#854d0e}
+.actions{display:flex;gap:12px;justify-content:center}
+.actions a{display:inline-block;padding:12px 24px;border-radius:12px;font-weight:600;text-decoration:none;font-size:14px}
+.btn-dark{background:#1a1a1a;color:#fff}
+.btn-dark:hover{background:#333}
+.btn-ghost{background:#f0fdf4;color:#15803d}
+.btn-ghost:hover{background:#dcfce7}
+</style>
+<div class="od">
+  <% if (!order) { %>
+    <div class="card">
+      <h1>Order Not Found</h1>
+      <p class="sub">We could not find that order. It may have expired or the link is incomplete.</p>
+      <div class="actions"><a href="/" class="btn-dark">Back to the Store</a></div>
+    </div>
+  <% } else { %>
+    <div class="card">
+      <% if (order.status === 'completed') { %>
+        <div class="check"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></div>
+        <h1>Order Confirmed</h1>
+        <p class="sub">Thanks for your purchase. Snippe confirmed your payment.</p>
+      <% } else if (order.status === 'failed' || order.status === 'cancelled' || order.status === 'expired') { %>
+        <div class="check red"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></div>
+        <h1>Order <%= order.status.charAt(0).toUpperCase() + order.status.slice(1) %></h1>
+        <p class="sub">Your payment was not completed. You can try again from the store.</p>
+      <% } else { %>
+        <div class="check amber"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+        <h1>Payment Pending</h1>
+        <p class="sub">We are waiting for Snippe to confirm your payment. This page updates automatically when the webhook arrives - no action needed.</p>
+      <% } %>
+
+      <div class="details">
+        <div class="row"><span class="lbl">Order Reference</span><span class="val mono"><%= order.reference %></span></div>
+        <div class="row"><span class="lbl">Total</span><span class="val">TZS <%= order.amount.toLocaleString() %></span></div>
+        <div class="row"><span class="lbl">Status</span><span class="stat stat-<%= order.status %>"><%= order.status %></span></div>
+        <div class="row"><span class="lbl">Snippe Reference</span><span class="val mono" style="font-size:12px;word-break:break-all"><%= order.snippe_reference || '-' %></span></div>
+      </div>
+
+      <div class="actions">
+        <a href="/dashboard" class="btn-dark">View Dashboard</a>
+        <a href="/" class="btn-ghost">Continue Shopping</a>
+      </div>
+    </div>
+
+    <script>
+      // Poll the server for the real status; reload when the webhook flips it.
+      (function () {
+        var ref = '<%= order.reference %>';
+        var current = '<%= order.status %>';
+        if (current === 'pending') {
+          setInterval(async function () {
+            try {
+              var r = await fetch('/success/status?ref=' + encodeURIComponent(ref));
+              var d = await r.json();
+              if (d.status && d.status !== current) window.location.reload();
+            } catch (e) { /* keep polling */ }
+          }, 3000);
+        }
+      })();
+    </script>
+  <% } %>
+</div>
+<%- include('partials/footer') %>

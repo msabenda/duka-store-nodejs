@@ -1,13 +1,19 @@
 import https from 'https';
 import http from 'node:http';
 
+// Snippe has two API bases:
+// - https://api.snippe.sh/v1      → POST /payments (payments endpoint).
+//   Used by the custom checkout flow (mobile/card/QR) - kept for future use.
+// - https://api.snippe.sh/api/v1  → POST /sessions (checkout session creation
+//   for the hosted checkout). This is the base used by the current checkout.
 const BASE = process.env.SNIPPE_API_BASE || 'https://api.snippe.sh/v1';
+const SESSIONS_BASE = process.env.SNIPPE_API_BASE_SESSIONS || 'https://api.snippe.sh/api/v1';
 const KEY = process.env.SNIPPE_API_KEY || '';
 const VERSION = '2026-01-25';
 
-function request(method, endpoint, body) {
+function request(method, endpoint, body, base = BASE) {
   return new Promise((resolve) => {
-    const url = new URL(endpoint, BASE.endsWith('/') ? BASE : BASE + '/');
+    const url = new URL(endpoint, base.endsWith('/') ? base : base + '/');
     const idempotency = 'duka_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
     const data = body ? JSON.stringify(body) : null;
@@ -39,7 +45,17 @@ function request(method, endpoint, body) {
         try {
           const parsed = JSON.parse(raw);
           const ok = res.statusCode >= 200 && res.statusCode < 300;
-          resolve({ success: ok, http_code: res.statusCode, data: parsed, error: ok ? null : parsed.message });
+          // Pull the API's own error message out of common response shapes so
+          // the UI shows the real reason instead of a generic fallback.
+          let apiError = null;
+          if (!ok && parsed) {
+            apiError = parsed.message
+              || (typeof parsed.error === 'string' ? parsed.error : (parsed.error?.message || null))
+              || parsed.detail
+              || parsed.data?.message
+              || null;
+          }
+          resolve({ success: ok, http_code: res.statusCode, data: parsed, error: apiError });
         } catch {
           resolve({ success: false, http_code: res.statusCode, data: null, error: raw });
         }
@@ -54,6 +70,9 @@ function request(method, endpoint, body) {
   });
 }
 
+// ── /v1 payments endpoint (SNIPPE_API_BASE = https://api.snippe.sh/v1) ──
+// The three payment functions below power the custom checkout form flow
+// (mobile / card / QR) - currently disabled in this demo. Kept for future use.
 export function createMobilePayment(amount, currency, phoneNumber, customer, webhookUrl, metadata) {
   const payload = {
     payment_type: 'mobile',
@@ -66,6 +85,15 @@ export function createMobilePayment(amount, currency, phoneNumber, customer, web
   return request('POST', 'payments', payload);
 }
 
+// 🎙️ DA NOTE — HOSTED CHECKOUT / PAYMENT SESSIONS (Session 3)
+// This is the "create session" step: ask Snippe for a hosted checkout and it
+// returns a payment_url (the Sessions API calls it checkout_url) to send the
+// customer to. `details.redirect_url` / `details.cancel_url` bring them back
+// to your site; `webhook_url` is where the status update lands; `metadata` is
+// your reconciliation key. Same shape across all three demo frameworks.
+// Docs: https://docs.snippe.sh/docs/2026-01-25/sessions
+//       https://docs.snippe.sh/docs/2026-01-25/sessions/profiles       (branding via profile_id)
+//       https://docs.snippe.sh/docs/2026-01-25/sessions/payment-links  (short shareable links)
 export function createCardPayment(amount, currency, redirectUrl, cancelUrl, customer, phoneNumber, webhookUrl, metadata) {
   const payload = {
     payment_type: 'card',
@@ -94,4 +122,48 @@ export function createQrPayment(amount, currency, customer, redirectUrl, cancelU
   if (webhookUrl) payload.webhook_url = webhookUrl;
   if (metadata) payload.metadata = metadata;
   return request('POST', 'payments', payload);
+}
+
+// 🎙️ DA NOTE — PAYMENT SESSIONS / HOSTED CHECKOUT (Series 3): creates a hosted
+// checkout session. The response's checkout_url is the Snippe page the customer
+// is redirected to — they fill/confirm their details and pay there (mobile
+// money). metadata.order_reference is how the webhook reconciles the payment.
+// Docs: https://docs.snippe.sh/docs/2026-01-25/sessions
+//       https://docs.snippe.sh/docs/2026-01-25/sessions/payment-links
+//       https://docs.snippe.sh/docs/2026-01-25/sessions/profiles
+// NOTE: sessions live on the /api/v1 base, NOT the /v1 payments base (see the
+// two bases at the top of this file).
+//
+// Request body fields (per the docs):
+//   amount (min 500; suggested amount when allow_custom_amount is true)
+//   currency (ISO 4217, only TZS)
+//   customer (pre-fills checkout form: name, email, phone)
+//   redirect_url (where to send the customer after payment, max 500 chars)
+//   webhook_url (receives payment events, max 500 chars)
+//   metadata (max 50 keys - reconciliation data)
+//   description (max 500 chars)
+//   allowed_methods (default ["mobile_money"])
+//   expires_in (default 3600s, range 60-86400)
+//   allow_custom_amount / min_amount / max_amount (customer-entered amount)
+//   profile_id (payment profile for branding, dashboard-managed)
+//   line_items (max 50, display-only)
+//   custom_fields (max 20 fields)
+//   display (checkout UI settings)
+export function createSession({ amount, currency = 'TZS', customer, redirect_url, webhook_url, metadata, description, allowed_methods, expires_in, allow_custom_amount, min_amount, max_amount, profile_id, line_items, custom_fields, display }) {
+  const payload = { amount, currency };
+  if (allowed_methods) payload.allowed_methods = allowed_methods;
+  if (allow_custom_amount !== undefined) payload.allow_custom_amount = allow_custom_amount;
+  if (min_amount !== undefined) payload.min_amount = min_amount;
+  if (max_amount !== undefined) payload.max_amount = max_amount;
+  if (customer) payload.customer = customer;
+  if (profile_id) payload.profile_id = profile_id;
+  if (redirect_url) payload.redirect_url = redirect_url;
+  if (webhook_url) payload.webhook_url = webhook_url;
+  if (description) payload.description = description;
+  if (metadata) payload.metadata = metadata;
+  if (expires_in) payload.expires_in = expires_in;
+  if (line_items) payload.line_items = line_items;
+  if (custom_fields) payload.custom_fields = custom_fields;
+  if (display) payload.display = display;
+  return request('POST', 'sessions', payload, SESSIONS_BASE);
 }

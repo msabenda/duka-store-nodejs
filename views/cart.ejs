@@ -31,6 +31,7 @@
 .summary .total .big{font-size:1.25rem;color:#1a1a1a}
 .btn-checkout{display:block;width:100%;background:#1a1a1a;color:#fff;text-align:center;padding:14px;border-radius:12px;font-weight:600;text-decoration:none;margin-top:20px;transition:background .15s;font-size:14px;box-shadow:0 10px 15px -3px rgba(0,0,0,.1)}
 .btn-checkout:hover{background:#333}
+form .btn-checkout{border:none;cursor:pointer;font-family:inherit}
 .empty{background:#f0fdf4;border-radius:16px;padding:64px;text-align:center;border:2px dashed #bbf7d0}
 .empty p{color:#6b7280;margin-bottom:16px}
 .empty .btn{display:inline-block;background:#1a1a1a;color:#fff;padding:12px 28px;border-radius:12px;font-weight:500;text-decoration:none;transition:background .15s;box-shadow:0 10px 15px -3px rgba(0,0,0,.1)}
@@ -67,7 +68,11 @@
       <div class="row"><span>Items (<%= items.length %>)</span><span>TZS <%= total.toLocaleString() %></span></div>
       <div class="row"><span>Shipping</span><span class="free">Free</span></div>
       <div class="total"><span>Total</span><span class="big">TZS <%= total.toLocaleString() %></span></div>
-      <a href="/checkout" class="btn-checkout">Checkout</a>
+      <%# Hosted checkout via Payment Sessions - customer pays on Snippe's page. Uncomment to restore the custom form link: %>
+      <%# <a href="/checkout" class="btn-checkout">Checkout</a> %>
+      <form method="POST" action="/checkout/pay">
+        <button type="submit" class="btn-checkout">Checkout</button>
+      </form>
     </div>
   </div>
   <% } %>
