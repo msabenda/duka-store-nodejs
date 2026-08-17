@@ -61,8 +61,9 @@ Deep dives live in per-series guides:
 - [Series 3 - Hosted Checkout with Payment Sessions](SERIES-3-README.md) -
   create session -> redirect -> return URL, what belongs in a session, and why
   the redirect is not proof of payment
-
-More series guides will be added here as the series grows.
+- [Series 4 - Webhooks & Event Handling](SERIES-4-README.md) -
+  verify Snippe webhook signatures, process events asynchronously, handle
+  retries, and reconcile event data back to your local order ledger
 
 ## Documentation
 

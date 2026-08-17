@@ -50,6 +50,25 @@ function writeJSON(file, data) {
   fs.writeFileSync(path.join(__dirname, 'data', file), JSON.stringify(data, null, 2));
 }
 
+function readProcessedWebhookEvents() {
+  return readJSON('webhook-events.json');
+}
+
+function hasProcessedWebhookEvent(eventId) {
+  if (!eventId) return false;
+  const events = readProcessedWebhookEvents();
+  return events.some(item => item.event_id === eventId);
+}
+
+function markProcessedWebhookEvent(eventId, payload) {
+  if (!eventId) return;
+  const events = readProcessedWebhookEvents();
+  if (!events.some(item => item.event_id === eventId)) {
+    events.push({ event_id: eventId, processed_at: new Date().toISOString(), payload });
+    writeJSON('webhook-events.json', events);
+  }
+}
+
 function formatPhone(phone) {
   let p = phone.replace(/^\+/, '');
   if (p.length === 9) p = '255' + p;
@@ -347,39 +366,58 @@ app.get('/success/status', (req, res) => {
 // order by `reference` and only updates status after the HMAC signature
 // verifies.
 app.post('/webhook', (req, res) => {
-  const payload = req.body;
+  const raw = req.rawBody || Buffer.from(JSON.stringify(req.body || {}));
+  const payload = req.body || {};
 
-  // Always log the raw event so webhook delivery can be debugged live.
   console.log('WEBHOOK received:', JSON.stringify(payload));
-
-  // Verify against the RAW body buffer (captured by the verify hook above).
-  const raw = req.rawBody || Buffer.from(JSON.stringify(payload));
 
   const secret = process.env.SNIPPE_WEBHOOK_SECRET;
   if (secret) {
-    const signature = req.headers['snippe-signature'] || '';
-    const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(raw).digest('hex');
-    const expectedBuf = Buffer.from(expected);
-    const sigBuf = Buffer.from(signature);
-    // timingSafeEqual throws on length mismatch — compare lengths first.
-    const valid = sigBuf.length === expectedBuf.length && crypto.timingSafeEqual(expectedBuf, sigBuf);
-    if (!valid) {
+    const timestamp = (req.headers['x-webhook-timestamp'] || req.headers['snippe-timestamp'] || '').toString();
+    const signature = (req.headers['x-webhook-signature'] || req.headers['snippe-signature'] || '').toString();
+
+    if (!timestamp || !signature) {
+      console.log('WEBHOOK rejected: missing timestamp or signature');
+      return res.status(401).json({ status: 'forged' });
+    }
+
+    const payloadText = raw.toString('utf-8');
+    const computed = crypto.createHmac('sha256', secret).update(`${timestamp}.${payloadText}`).digest('hex');
+    const normalized = signature.trim().replace(/^sha256\s*=\s*/i, '').toLowerCase();
+    const expected = computed.toLowerCase();
+
+    if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(normalized))) {
       console.log('WEBHOOK forged/signature mismatch (check SNIPPE_WEBHOOK_SECRET matches the dashboard)');
       return res.status(401).json({ status: 'forged' });
     }
+
+    const eventTime = Number(timestamp);
+    if (Number.isFinite(eventTime) && Math.abs(Date.now() / 1000 - eventTime) > 300) {
+      console.log('WEBHOOK stale or replayed timestamp received');
+      return res.status(401).json({ status: 'stale' });
+    }
   }
 
-  const event = payload.event || payload.type || 'unknown';
-  let reference = payload.reference || payload.order_reference || payload.metadata?.order_reference;
+  const eventId = payload.id || payload.event_id || payload.data?.id;
+  if (eventId && hasProcessedWebhookEvent(eventId)) {
+    console.log(`Duplicate Snippe webhook ignored: ${eventId}`);
+    return res.json({ status: 'duplicate' });
+  }
 
+  const event = payload.event || payload.type || payload.data?.status || 'unknown';
+  let reference = payload.reference || payload.order_reference || payload.metadata?.order_reference || payload.metadata?.url_metadata?.order_reference;
+
+  if (!reference && payload.data?.reference) reference = payload.data.reference;
   if (!reference && payload.data?.metadata?.reference) reference = payload.data.metadata.reference;
   if (!reference && payload.data?.metadata?.order_reference) reference = payload.data.metadata.order_reference;
+  if (!reference && payload.data?.metadata?.url_metadata?.order_reference) reference = payload.data.metadata.url_metadata.order_reference;
+  if (!reference && payload.data?.external_reference) reference = payload.data.external_reference;
   if (!reference && payload.data?.description) {
     const match = payload.data.description.match(/DUKA-[A-Z0-9]+/);
     if (match) reference = match[0];
   }
 
-  if (!reference) return res.json({ status: 'ignored' });
+  if (!reference) return res.json({ status: 'ignored', message: 'No reference found' });
 
   const statusMap = {
     'payment.completed': 'completed', 'payment.successful': 'completed', 'payment.confirmed': 'completed',
@@ -391,19 +429,27 @@ app.post('/webhook', (req, res) => {
     'payment.pending': 'pending', 'session.pending': 'pending', 'checkout.pending': 'pending',
   };
 
-  const newStatus = statusMap[event];
+  const newStatus = statusMap[event] || (payload.data?.status && {
+    completed: 'completed', successful: 'completed', confirmed: 'completed', succeeded: 'completed',
+    failed: 'failed', cancelled: 'cancelled', voided: 'cancelled', expired: 'expired', pending: 'pending',
+  }[payload.data.status.toLowerCase()]);
+
   if (newStatus) {
     const orders = readJSON('orders.json');
-    // Resolve by our order reference OR by the stored Snippe session reference.
     let idx = orders.findIndex(o => o.reference === reference);
     if (idx === -1) idx = orders.findIndex(o => o.snippe_reference === reference);
     if (idx !== -1) {
       orders[idx].status = newStatus;
       writeJSON('orders.json', orders);
+      markProcessedWebhookEvent(eventId, payload);
       console.log(`Order ${reference} updated to ${newStatus}`);
     } else {
       console.log(`WEBHOOK: no order found for reference ${reference}`);
+      if (eventId) markProcessedWebhookEvent(eventId, payload);
     }
+  } else {
+    if (eventId) markProcessedWebhookEvent(eventId, payload);
+    console.log(`WEBHOOK event not mapped, ignoring: ${event}`);
   }
 
   res.json({ status: 'ok' });
