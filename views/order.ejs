@@ -15,7 +15,7 @@
 .stat{display:inline-block;padding:4px 12px;border-radius:999px;font-size:14px;font-weight:600}
 .stat-completed{background:#dcfce7;color:#15803d}
 .stat-failed{background:#fef2f2;color:#991b1b}
-.stat-cancelled{background:#f3f4f6;color:#4b5563}
+.stat-cancelled,.stat-voided{background:#f3f4f6;color:#4b5563}
 .stat-pending{background:#fef9c3;color:#854d0e}
 .stat-expired{background:#fef9c3;color:#854d0e}
 .divider{border-top:1px solid #dcfce7;margin:20px 0}
@@ -76,4 +76,21 @@
   </div>
   <div class="continue"><a href="/">Continue Shopping &rarr;</a></div>
 </div>
+<% if (order.status === 'pending') { %>
+<script>
+(() => {
+  const initial = <%- JSON.stringify(order.status) %>;
+  const endpoint = <%- JSON.stringify('/api/orders/' + encodeURIComponent(order.reference) + '/status') %>;
+  const timer = setInterval(async () => {
+    try {
+      const response = await fetch(endpoint, { headers: { accept: 'application/json' } });
+      if (!response.ok) return;
+      const state = await response.json();
+      if (state.status !== initial) { clearInterval(timer); location.reload(); }
+    } catch { /* transient network error: try again */ }
+  }, 3000);
+  setTimeout(() => clearInterval(timer), 5 * 60 * 1000);
+})();
+</script>
+<% } %>
 <%- include('partials/footer') %>

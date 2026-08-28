@@ -34,13 +34,14 @@ The same store is available in three frameworks. Pick your stack:
 
 ```bash
 npm install
-# edit .env: set SNIPPE_API_KEY, APP_URL (https), SESSION_SECRET
+cp .env.example .env
+# Set SNIPPE_API_KEY, SNIPPE_WEBHOOK_SECRET, and SESSION_SECRET.
 npm start
-# -> http://localhost:8002
+# In another terminal:
+ngrok http 8002
 ```
 
-Snippe requires a reachable HTTPS URL for webhooks and redirects. For local
-testing, run `ngrok http 8002` and set `APP_URL` to the https URL it gives you.
+For a real development payment, copy the tunnel's public HTTPS origin into the exact callback setting, for example `SNIPPE_WEBHOOK_URL=https://abc123.ngrok-free.app/webhooks/snippe`, and configure the same callback plus its matching signing secret in Snippe. Restart the app after changing `.env`. Never use an HTTP or localhost webhook URL. See `SERIES-7-README.md` for delivery logs and troubleshooting.
 
 ## Project Structure
 
@@ -51,7 +52,7 @@ duka-store-nodejs/
 |-- catalog.js     # product catalog
 |-- views/         # EJS templates (store UI)
 |-- data/          # JSON storage (users, orders)
-`-- .env           # SNIPPE_API_KEY, APP_URL, SESSION_SECRET
+`-- .env           # local keys, signing secret, public webhook URL
 ```
 
 ## Series Guides

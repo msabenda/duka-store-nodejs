@@ -55,7 +55,7 @@
   </header>
 
   <% if (typeof error !== 'undefined' && error) { %>
-  <div class="flash"><div class="flash-msg flash-error"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span><%= error %></span></div></div>
+  <div class="flash"><div class="flash-msg flash-error" role="alert" aria-live="assertive"><svg aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span><%= error %></span></div></div>
   <% } %>
 
   <main>
